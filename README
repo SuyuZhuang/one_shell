@@ -1,0 +1,1 @@
+gcc -Og -o prog myshell.c csapp.c -lpthread
