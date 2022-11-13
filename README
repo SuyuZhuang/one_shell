@@ -1,1 +1,5 @@
+从csapp开始
+第一部分是无Signal版本的
+内置的命令只有quit
+
 gcc -Og -o prog myshell.c csapp.c -lpthread
