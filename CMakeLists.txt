@@ -6,6 +6,4 @@ set(CMAKE_C_STANDARD 11)
 include_directories(.)
 
 add_executable(one_shell
-        csapp.c
-        csapp.h
         myshell.c)

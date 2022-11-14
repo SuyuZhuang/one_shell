@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 extern char **environ;
 void init();
@@ -10,10 +11,10 @@ void terminate();
 char *read_line();
 int parse_args(char *line, char **argv);
 void execute(char **args, int bg);
-
 int isBuiltinCommand(char **args);
-
-int checkIsBg(char **args);
+typedef void handler_t(int);
+void Signal(int signum, handler_t *handler);
+void sigint_handler(int sig);
 
 int main(int argc, char *argv[]) {
     // 1.初始化
@@ -29,6 +30,10 @@ int main(int argc, char *argv[]) {
 
 void init() {
     printf("Welcome, this is sush, pid=%d\n", getpid());
+    // 将stderr重定向到stdout
+    dup2(1, 2);
+    // 注册信号Handlers
+    Signal(SIGINT, sigint_handler);
 }
 #define TOK_BUFSIZE 64
 void interpret() {
@@ -109,6 +114,22 @@ int parse_args(char *line, char **argv) {
     return 0;
 }
 
+/*
+ * Signal - wrapper for the sigaction function
+ */
+void Signal(int signum, handler_t *handler)
+{
+    printf("init-install signum=%d\n", signum);
+    struct sigaction action, old_action;
+
+    action.sa_handler = handler;
+    sigemptyset(&action.sa_mask); /* block sigs of type being handled */
+    action.sa_flags = SA_RESTART; /* restart syscalls if possible */
+
+    if (signal(signum, handler) == SIG_ERR)
+        printf("Signal error");
+}
+
 void execute(char **args, int bg) {
     pid_t pid;
 
@@ -146,6 +167,12 @@ void execute(char **args, int bg) {
 
 
     }
+}
+
+void sigint_handler(int sig)
+{
+    printf("  caught! sigint_handler  sig=%d\n", sig);
+    exit(0);
 }
 
 

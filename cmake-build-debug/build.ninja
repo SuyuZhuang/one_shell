@@ -46,13 +46,6 @@ cmake_ninja_workdir = /Users/zhuangsuyu/Documents/study/cprogram/one_shell/cmake
 
 build cmake_object_order_depends_target_one_shell: phony || CMakeFiles/one_shell.dir
 
-build CMakeFiles/one_shell.dir/csapp.c.o: C_COMPILER__one_shell_Debug /Users/zhuangsuyu/Documents/study/cprogram/one_shell/csapp.c || cmake_object_order_depends_target_one_shell
-  DEP_FILE = CMakeFiles/one_shell.dir/csapp.c.o.d
-  FLAGS = -g -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk
-  INCLUDES = -I/Users/zhuangsuyu/Documents/study/cprogram/one_shell/.
-  OBJECT_DIR = CMakeFiles/one_shell.dir
-  OBJECT_FILE_DIR = CMakeFiles/one_shell.dir
-
 build CMakeFiles/one_shell.dir/myshell.c.o: C_COMPILER__one_shell_Debug /Users/zhuangsuyu/Documents/study/cprogram/one_shell/myshell.c || cmake_object_order_depends_target_one_shell
   DEP_FILE = CMakeFiles/one_shell.dir/myshell.c.o.d
   FLAGS = -g -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk
@@ -68,7 +61,7 @@ build CMakeFiles/one_shell.dir/myshell.c.o: C_COMPILER__one_shell_Debug /Users/z
 #############################################
 # Link the executable one_shell
 
-build one_shell: C_EXECUTABLE_LINKER__one_shell_Debug CMakeFiles/one_shell.dir/csapp.c.o CMakeFiles/one_shell.dir/myshell.c.o
+build one_shell: C_EXECUTABLE_LINKER__one_shell_Debug CMakeFiles/one_shell.dir/myshell.c.o
   FLAGS = -g -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk
   OBJECT_DIR = CMakeFiles/one_shell.dir
   POST_BUILD = :
