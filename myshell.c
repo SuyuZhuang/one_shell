@@ -6,7 +6,6 @@ int parseline(char *buf, char **argv);
 int builtin_command(char **argv);
 
 int main() {
-    printf("start\n");
     char cmdline[MAXLINE];
 
     while(1) {
