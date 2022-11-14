@@ -38,7 +38,7 @@ void interpret() {
 
 
     while (1) {
-        printf(">");
+        printf("sush>");
         line = read_line();
         args = malloc(sizeof(char *) * bufsize);
         int bg = parse_args(line, args);
@@ -131,7 +131,7 @@ void execute(char **args, int bg) {
             // 父进程
             if (!bg) {
                 // 创建的不是bg运行的子进程，需要父进程等待
-                printf("sush: not bg, need wait  pid=%d cmd=%s \n", pid,  args[0]);
+                printf("sush: fg, need wait  pid=%d cmd=%s \n", pid,  args[0]);
                 int status;
                 waitpid(pid, &status, 0);
 
