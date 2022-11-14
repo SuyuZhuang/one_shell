@@ -8,8 +8,8 @@ void init();
 void interpret();
 void terminate();
 char *read_line();
-char **parse_args(char *line);
-void execute(char **args);
+int parse_args(char *line, char **argv);
+void execute(char **args, int bg);
 
 int isBuiltinCommand(char **args);
 
@@ -28,18 +28,21 @@ int main(int argc, char *argv[]) {
 }
 
 void init() {
-
+    printf("Welcome, this is sush, pid=%d\n", getpid());
 }
-
+#define TOK_BUFSIZE 64
 void interpret() {
     char *line;
     char **args;
+    int bufsize = TOK_BUFSIZE;
+
 
     while (1) {
         printf(">");
         line = read_line();
-        args = parse_args(line);
-        execute(args);
+        args = malloc(sizeof(char *) * bufsize);
+        int bg = parse_args(line, args);
+        execute(args, bg);
 
         free(line);
         free(args);
@@ -66,47 +69,52 @@ char *read_line() {
     return line;
 }
 
-#define TOK_BUFSIZE 64
+
 #define TOK_DELIM " \r\t\n\a"
-char **parse_args(char *line) {
-    int bufsize = TOK_BUFSIZE;
-    int position = 0;
-    char **tokens = malloc(sizeof(char *) *bufsize);
+int parse_args(char *line, char **argv) {
+    int bufsize = sizeof(argv);
+    int argc = 0;
     char *token;
 
-    if (!tokens) {
+    if (!argv) {
         fprintf(stderr, "sush: allocation error\n");
         exit(EXIT_FAILURE);
     }
 
     token = strtok(line, TOK_DELIM);
     while (token != NULL) {
-        tokens[position++] = token;
+        argv[argc++] = token;
 
-        if (position >= bufsize) {
+        if (argc >= bufsize) {
             bufsize += TOK_BUFSIZE;
-            tokens = realloc(tokens, sizeof(char*) *bufsize);
-            if (!tokens) {
+            argv = realloc(argv, sizeof(char*) * bufsize);
+            if (!argv) {
                 fprintf(stderr, "sush: allocation error\n");
                 exit(EXIT_FAILURE);
             }
         }
         token = strtok(NULL, TOK_DELIM);
     }
-    tokens[position] = NULL;
-    return tokens;
+    argv[argc] = NULL;
+
+    if (argc == 0) {
+        return 1;
+    }
+
+    // 检查最后一个字符是否是 &
+    if (*argv[argc - 1] == '&') {
+        argv[--argc] = NULL;
+        return 1;
+    }
+    return 0;
 }
 
-void execute(char **args) {
+void execute(char **args, int bg) {
     pid_t pid;
-    pid_t wpid;
-    int isBackground;
 
     if (args[0] == NULL) {
         return;
     }
-
-    isBackground = checkIsBg(args);
 
     // 不是内置的命令，则调用system call
     if (!isBuiltinCommand(args)) {
@@ -121,31 +129,26 @@ void execute(char **args) {
             printf("sush: %s System error.\n", args[0]);
         } else {
             // 父进程
-            if (!isBackground) {
+            if (!bg) {
                 // 创建的不是bg运行的子进程，需要父进程等待
+                printf("sush: not bg, need wait  pid=%d cmd=%s \n", pid,  args[0]);
                 int status;
                 waitpid(pid, &status, 0);
 
                 if (status < 0) {
                     printf("sush: %s System error.\n", args[0]);
-                } else {
-                    printf("sush: pid=%d cmd=%s \n", pid,  args[0]);
                 }
+            } else {
+                printf("sush: bg, pid=%d cmd=%s \n", pid,  args[0]);
+
             }
         }
 
 
     }
-    return;
 }
 
-int checkIsBg(char **args) {
-    int i = 0;
-    while (args[i] != NULL) {
-        i++;
-    }
-    return *args[i - 1] == '&';
-}
+
 
 /*
   List of builtin commands, followed by their corresponding functions.
