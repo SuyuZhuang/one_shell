@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <errno.h>
 
 extern char **environ;
 void init();
@@ -15,6 +16,7 @@ int isBuiltinCommand(char **args);
 typedef void handler_t(int);
 void Signal(int signum, handler_t *handler);
 void sigint_handler(int sig);
+void sigchld_handler(int sig);
 
 int main(int argc, char *argv[]) {
     // 1.初始化
@@ -33,7 +35,8 @@ void init() {
     // 将stderr重定向到stdout
     dup2(1, 2);
     // 注册信号Handlers
-    Signal(SIGINT, sigint_handler);
+    Signal(SIGINT, sigint_handler); /* ctrl-c */
+    Signal(SIGCHLD, sigchld_handler);  /* Terminated or stopped child */
 }
 #define TOK_BUFSIZE 64
 void interpret() {
@@ -169,6 +172,13 @@ void execute(char **args, int bg) {
     }
 }
 
+
+
+
+/*****************
+ * Signal handlers
+ *****************/
+
 void sigint_handler(int sig)
 {
     printf("  caught! sigint_handler  sig=%d\n", sig);
@@ -176,10 +186,43 @@ void sigint_handler(int sig)
 }
 
 
-
 /*
-  List of builtin commands, followed by their corresponding functions.
+ * sigchld_handler - The kernel sends a SIGCHLD to the shell whenever
+ *     a child job terminates (becomes a zombie), or stops because it
+ *     received a SIGSTOP or SIGTSTP signal. The handler reaps all
+ *     available zombie children, but doesn't wait for any other
+ *     currently running children to terminate.
  */
+
+unsigned int Sleep(unsigned int secs)
+{
+    unsigned int rc;
+
+    if ((rc = sleep(secs)) < 0)
+        printf("Sleep error\n");
+    return rc;
+}
+
+void sigchld_handler(int sig)
+{
+    printf("caught! sigchld_handler prepare to reap children   sig=%d\n", sig);
+    int olderrno = errno;
+    while (waitpid(-1, NULL, 0) > 0) {
+        printf("Handler reaped child\n");
+    }
+
+    if (errno != ECHILD) {
+        printf("waitpid error");
+    }
+    Sleep(1);
+    errno = olderrno;
+}
+
+
+/*****************
+ * 内置命令
+ *****************/
+
 char *builtin_str[] = {
         "exit",
         "help",
