@@ -1,105 +1,156 @@
-#include "csapp.h"
-#define MAXARGS 128
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-void eval(char *cmdline);
-int parseline(char *buf, char **argv);
-int builtin_command(char **argv);
+extern char **environ;
+void init();
+void interpret();
+void terminate();
+char *read_line();
+char **parse_args(char *line);
+void execute(char **args);
 
-int main() {
-    char cmdline[MAXLINE];
+int isBuiltinCommand(char **args);
 
-    while(1) {
-        /* read */
-        printf("> ");
-    Fgets(cmdline, MAXLINE, stdin);
-    if (feof(stdin)) {
-        exit(0);
-    }
+int checkIsBg(char **args);
 
-    /* Evaluate */
-    eval(cmdline);
-    }
-    return 0;
+int main(int argc, char *argv[]) {
+    // 1.初始化
+    init();
+
+    // 2.解释和执行
+    interpret();
+
+    // 3.收尾
+    terminate();
+    return EXIT_SUCCESS;
 }
 
+void init() {
 
-/* eval - Evaluate a command line */
-void eval(char *cmdline) {
-    char *argv[MAXARGS];
-    char buf[MAXLINE];
-    int bg;
+}
+
+void interpret() {
+    char *line;
+    char **args;
+
+    while (1) {
+        printf(">");
+        line = read_line();
+        args = parse_args(line);
+        execute(args);
+
+        free(line);
+        free(args);
+    }
+}
+
+void terminate() {
+
+}
+
+char *read_line() {
+    char *line = NULL;
+    ssize_t bufsize = 0;
+
+    if (getline(&line, &bufsize, stdin) == -1) {
+        if (feof(stdin)) {
+            // 到达EOF, 文件末尾，或者Ctrl-D
+            exit(EXIT_SUCCESS);
+        } else {
+            perror("readline");
+            exit(EXIT_FAILURE);
+        }
+    }
+    return line;
+}
+
+#define TOK_BUFSIZE 64
+#define TOK_DELIM " \r\t\n\a"
+char **parse_args(char *line) {
+    int bufsize = TOK_BUFSIZE;
+    int position = 0;
+    char **tokens = malloc(sizeof(char *) *bufsize);
+    char *token;
+
+    if (!tokens) {
+        fprintf(stderr, "sush: allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+
+    token = strtok(line, TOK_DELIM);
+    while (token != NULL) {
+        tokens[position++] = token;
+
+        if (position >= bufsize) {
+            bufsize += TOK_BUFSIZE;
+            tokens = realloc(tokens, sizeof(char*) *bufsize);
+            if (!tokens) {
+                fprintf(stderr, "sush: allocation error\n");
+                exit(EXIT_FAILURE);
+            }
+        }
+        token = strtok(NULL, TOK_DELIM);
+    }
+    tokens[position] = NULL;
+    return tokens;
+}
+
+void execute(char **args) {
     pid_t pid;
+    pid_t wpid;
+    int isBackground;
 
-    strcpy(buf, cmdline);
-    bg =  parseline(buf, argv);
-    if (argv[0] == NULL) {
+    if (args[0] == NULL) {
         return;
     }
-    
-    if (!builtin_command(argv)) {
-        if ((pid = Fork()) == 0) {
-            if (execve(argv[0], argv, environ) <0 ){
-                printf("%s : Command not found.\n", argv[0]);
+
+    isBackground = checkIsBg(args);
+
+    // 不是内置的命令，则调用system call
+    if (!isBuiltinCommand(args)) {
+        pid = fork();
+        if (pid == 0) {
+            // 子进程
+            if (execve(args[0], args + 1) == -1) {
+                printf("sush: %s Command not found.\n", args[0]);
                 exit(0);
+            }
+        } else if (pid < 0) {
+            printf("sush: %s System error.\n", args[0]);
+        } else {
+            // 父进程
+            if (!isBackground) {
+                // 创建的不是bg运行的子进程，需要父进程等待
+                int status;
+                waitpid(pid, &status, 0);
+
+                if (status < 0) {
+                    printf("sush: %s System error.\n", args[0]);
+                } else {
+                    printf("sush: pid=%d cmd=%s \n", pid,  args[0]);
+                }
             }
         }
 
-        /* Parent waits for foreground job to terminate */
-        if (!bg) {
-            int status;
-            if (waitpid(pid, &status, 0) < 0) {
-                unix_error("waitfg: waitpid error");
-            } else {
-                printf("%d %s", pid, cmdline);
-            }
-        }
+
     }
     return;
 }
 
-/* If first arg is a builtin command, run it and return true */
-int builtin_command(char **argv) {
-    if (!strcmp(argv[0], "quit")) {  /* 只识别quit */
-        exit(0);
+int checkIsBg(char **args) {
+    int i = 0;
+    while (args[i] != NULL) {
+        i++;
     }
-    if (!strcmp(argv[0], "&")) {   /* 忽略& */
-        return 1;
+    return *args[i - 1] == '&';
+}
+
+int isBuiltinCommand(char **args) {
+    // quit 退出
+    if (strcmp(args[0], "quit") == 0) {
+        exit(0);
     }
     return 0;
 }
-
-
-/* parseline - Parse the command line and build the argv array*/
-int parseline(char *buf, char **argv) {
-    char *delim;
-    int argc;
-    int bg;
-
-    buf[strlen(buf)-1] = ' ';
-    while (*buf && (*buf == ' ')) {
-        buf++;
-    }
-
-    argc = 0;
-    while ((delim = strchr(buf, ' '))) {
-        argv[argc++] = buf;
-        *delim = '\0';
-        buf = delim + 1;
-        while (*buf && (*buf == ' ')) {
-            buf++;
-        }
-    }
-    argv[argc] = NULL;
-
-    if (argc == 0) {
-        return 1;
-    }
-
-    if ((bg = (*argv[argc-1] == '&')) != 0) {
-        argv[--argc] = NULL;
-    }
-
-    return bg;
-}
-
-
