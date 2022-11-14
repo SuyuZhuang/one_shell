@@ -113,9 +113,9 @@ void execute(char **args) {
         pid = fork();
         if (pid == 0) {
             // 子进程
-            if (execve(args[0], args + 1) == -1) {
+            if (execvp(args[0], args + 1) < 0) {
                 printf("sush: %s Command not found.\n", args[0]);
-                exit(0);
+                exit(EXIT_FAILURE);
             }
         } else if (pid < 0) {
             printf("sush: %s System error.\n", args[0]);
@@ -147,10 +147,48 @@ int checkIsBg(char **args) {
     return *args[i - 1] == '&';
 }
 
+/*
+  List of builtin commands, followed by their corresponding functions.
+ */
+char *builtin_str[] = {
+        "exit",
+        "help",
+        "cd"
+};
+
+int num_builtins() {
+    return sizeof(builtin_str) / sizeof(char *);
+}
+
 int isBuiltinCommand(char **args) {
     // quit 退出
     if (strcmp(args[0], "quit") == 0) {
         exit(0);
+    }
+    // help 帮助
+    if (strcmp(args[0], "help") == 0) {
+        int i;
+        printf("SUSH help:\n");
+        printf("Type program names and arguments, and hit enter.\n");
+        printf("The following are built in:\n");
+
+        for (i = 0; i < num_builtins(); i++) {
+            printf("  %s\n", builtin_str[i]);
+        }
+
+        printf("Use the man command for information on other programs.\n");
+        return 1;
+    }
+    // cd change directory
+    if (strcmp(args[0], "cd") == 0) {
+        if (args[1] == NULL) {
+            fprintf(stderr, "sush: expected argument to \"cd\"\n");
+        } else {
+            if (chdir(args[1]) != 0) {
+                perror("sush");
+            }
+        }
+        return 1;
     }
     return 0;
 }
