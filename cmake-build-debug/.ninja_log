@@ -1,0 +1,4 @@
+# ninja log v5
+2	430	1668432728507127572	CMakeFiles/one_shell.dir/myshell.c.o	dc320056bde829b1
+1	435	1668432728517862692	CMakeFiles/one_shell.dir/csapp.c.o	fec20bc7511073ab
+435	489	1668432728571324246	one_shell	a78fb3960faab19
