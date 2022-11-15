@@ -268,8 +268,8 @@ int num_builtins() {
 }
 
 int isBuiltinCommand(char **args) {
-    // quit 退出
-    if (strcmp(args[0], "quit") == 0) {
+    // quit/exit 退出
+    if (strcmp(args[0], "quit") == 0 || strcmp(args[0], "exit") == 0) {
         exit(0);
     }
     // help 帮助
