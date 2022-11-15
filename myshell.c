@@ -5,7 +5,6 @@
 #include <signal.h>
 #include <errno.h>
 
-extern char **environ;
 void init();
 void interpret();
 void terminate();
@@ -14,7 +13,7 @@ int parse_args(char *line, char **argv);
 void execute(char **args, int bg);
 int isBuiltinCommand(char **args);
 typedef void handler_t(int);
-void Signal(int signum, handler_t *handler);
+handler_t* Signal(int signum, handler_t *handler);
 void sigint_handler(int sig);
 void sigchld_handler(int sig);
 
@@ -22,13 +21,20 @@ int main(int argc, char *argv[]) {
     // 1.初始化
     init();
 
-    // 2.解释和执行
+    // 2.解析和执行
     interpret();
 
     // 3.收尾
     terminate();
     return EXIT_SUCCESS;
 }
+
+void terminate() {
+}
+
+/*****************
+ * 初始化和 Signal handlers
+ *****************/
 
 void init() {
     printf("Welcome, this is sush, pid=%d\n", getpid());
@@ -38,6 +44,59 @@ void init() {
     Signal(SIGINT, sigint_handler); /* ctrl-c */
     Signal(SIGCHLD, sigchld_handler);  /* Terminated or stopped child */
 }
+
+
+unsigned int Sleep(unsigned int secs)
+{
+    unsigned int rc;
+
+    if ((rc = sleep(secs)) < 0)
+        printf("Sleep error\n");
+    return rc;
+}
+
+/**
+ * 接收到kernel 传来的SIGCHLD信号
+ * 处理所有变成僵尸进程的子进程
+ *
+ * @param sig SIGCHLD信号
+ */
+void sigchld_handler(int sig)
+{
+    printf("caught! sigchld_handler prepare to reap children who became zombie   sig=%d\n", sig);
+    // 因为在waitpid过程中也可能覆盖errno，所有先保存下来，退出handler时再恢复
+    int olderrno = errno;
+    while (waitpid(-1, NULL, 0) > 0) {
+        printf("Handler reaped child\n");
+    }
+
+    if (errno != ECHILD) {
+        printf("waitpid error");
+    }
+    // 简单处理
+    Sleep(1);
+    errno = olderrno;
+}
+
+
+/**
+ * 接收到kernel 传来的SIGINT信号
+ * 直接退出shell
+ *
+ * @param sig SIGINT信号
+ */
+void sigint_handler(int sig)
+{
+    printf("  caught! sigint_handler  sig=%d\n", sig);
+    exit(0);
+}
+
+
+/*****************
+ * 解析和执行
+ *****************/
+
+
 #define TOK_BUFSIZE 64
 void interpret() {
     char *line;
@@ -57,17 +116,18 @@ void interpret() {
     }
 }
 
-void terminate() {
 
-}
-
+/**
+ * 读取一行
+ * @return 一行字符串，会以\n结尾
+ */
 char *read_line() {
     char *line = NULL;
-    ssize_t bufsize = 0;
+    size_t bufsize = 0;
 
     if (getline(&line, &bufsize, stdin) == -1) {
+        // 检查是否到达EOF, 即文件末尾
         if (feof(stdin)) {
-            // 到达EOF, 文件末尾，或者Ctrl-D
             exit(EXIT_SUCCESS);
         } else {
             perror("readline");
@@ -79,6 +139,13 @@ char *read_line() {
 
 
 #define TOK_DELIM " \r\t\n\a"
+/**
+ * tokenizer 并检查最后一个字符是否是 &
+ *
+ * @param line 输入的一行字符串
+ * @param argv 通过空格等分隔符进行tokenizer，得到字符串数组
+ * @return 如果最后一个字符是&返回1，否则返回0
+ */
 int parse_args(char *line, char **argv) {
     int bufsize = sizeof(argv);
     int argc = 0;
@@ -117,22 +184,33 @@ int parse_args(char *line, char **argv) {
     return 0;
 }
 
-/*
- * Signal - wrapper for the sigaction function
+
+/**
+ * 包装signal方法，用来给某种信号注册对应的handler
+ * 这个方法csapp书中有
+ *
+ * @param signum 信号对应的数字
+ * @param handler 信号处理的handler
  */
-void Signal(int signum, handler_t *handler)
+handler_t* Signal(int signum, handler_t *handler)
 {
-    printf("init-install signum=%d\n", signum);
     struct sigaction action, old_action;
 
     action.sa_handler = handler;
     sigemptyset(&action.sa_mask); /* block sigs of type being handled */
     action.sa_flags = SA_RESTART; /* restart syscalls if possible */
 
-    if (signal(signum, handler) == SIG_ERR)
+    if (sigaction(signum, &action, &old_action) < 0)
         printf("Signal error");
+    return (old_action.sa_handler);
 }
 
+/**
+ * 执行命令，会先判断是否是内置命令
+ *
+ * @param args 所有参数， args[0]是命令
+ * @param bg 1 是background 命令，0 是foreground命令
+ */
 void execute(char **args, int bg) {
     pid_t pid;
 
@@ -173,50 +251,6 @@ void execute(char **args, int bg) {
 }
 
 
-
-
-/*****************
- * Signal handlers
- *****************/
-
-void sigint_handler(int sig)
-{
-    printf("  caught! sigint_handler  sig=%d\n", sig);
-    exit(0);
-}
-
-
-/*
- * sigchld_handler - The kernel sends a SIGCHLD to the shell whenever
- *     a child job terminates (becomes a zombie), or stops because it
- *     received a SIGSTOP or SIGTSTP signal. The handler reaps all
- *     available zombie children, but doesn't wait for any other
- *     currently running children to terminate.
- */
-
-unsigned int Sleep(unsigned int secs)
-{
-    unsigned int rc;
-
-    if ((rc = sleep(secs)) < 0)
-        printf("Sleep error\n");
-    return rc;
-}
-
-void sigchld_handler(int sig)
-{
-    printf("caught! sigchld_handler prepare to reap children   sig=%d\n", sig);
-    int olderrno = errno;
-    while (waitpid(-1, NULL, 0) > 0) {
-        printf("Handler reaped child\n");
-    }
-
-    if (errno != ECHILD) {
-        printf("waitpid error");
-    }
-    Sleep(1);
-    errno = olderrno;
-}
 
 
 /*****************
