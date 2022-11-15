@@ -1,0 +1,7 @@
+.idea/
+bin/
+build/
+
+# CMake
+cmake-build-*/
+prog
