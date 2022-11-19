@@ -17,6 +17,11 @@ handler_t* Signal(int signum, handler_t *handler);
 void sigint_handler(int sig);
 void sigchld_handler(int sig);
 
+void print_prompt();
+
+/*****************
+ * 主程序
+ *****************/
 int main(int argc, char *argv[]) {
     // 1.初始化
     init();
@@ -105,7 +110,7 @@ void interpret() {
 
 
     while (1) {
-        printf("sush>");
+        print_prompt();
         line = read_line();
         args = malloc(sizeof(char *) * bufsize);
         int bg = parse_args(line, args);
@@ -114,6 +119,13 @@ void interpret() {
         free(line);
         free(args);
     }
+}
+
+/**
+ * 打印提示信息
+ */
+void print_prompt() {
+    printf("sush> ");
 }
 
 
